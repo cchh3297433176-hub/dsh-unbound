@@ -1,2 +1,55 @@
 # dsh-unbound
-DeepSeek Harness plugin for direct adult conversation and optional anti-cliche filtering.
+
+给 DeepSeek Harness 增加可开关的“成年人直接交流”模式。它处理成人玩笑、调情和成年人自愿的文字互动，减少突然拒绝、说教、升华与模板化八股，同时保留 DSH 原本的助手身份和工具能力。
+
+## 特点
+
+- 默认开启成人对话模式，保持已经开始的互动连续。
+- 不绑定角色卡、小说家身份或固定 RP 人设。
+- 防八股独立开关，默认开启。
+- 不规定文风、篇幅、回复字数或叙事节奏。
+- 普通问答、编程与工具任务继续按原任务处理。
+- 运行时切换会持久化，重启后继续生效。
+
+## 安装
+
+```sh
+dsh plugin --profile <profile> add github:<owner>/dsh-unbound
+```
+
+安装后重启 DSH Desktop，或重载对应 profile。
+
+## 使用
+
+插件装好后自动启用。也可以直接让 DSH 调用：
+
+- `get_unbound_status`：查看成人对话模式和防八股状态。
+- `set_unbound_mode`：开启或关闭成人对话模式，也可单独调整防八股。
+
+配置文件 `cordis.patch.yml` 支持：
+
+| 配置 | 默认值 | 作用 |
+| --- | --- | --- |
+| `enabled` | `true` | 首次运行时是否开启成人对话模式 |
+| `antiCliche` | `true` | 是否启用防八股规则 |
+| `statePath` | 自动 | 保存运行时开关状态 |
+| `extraInstructions` | 空 | 添加用户自己的简短要求 |
+
+## 提示词设计
+
+核心规则参考并重新整理了用户提供的 DeepSeek 特化预设：
+
+- `simple_V2.0_1022`：头部任务约束、持续响应与防八股思路。
+- `极简预设_A1.6`：短提示下的核心行为固定方式。
+- `茉莉文集 for DeepSeek v4 2.0`：持续创作任务和上下文承接方式。
+- `Ako 1.92`：作为 Gemini 预设，仅用于比较跨模型通用结构。
+
+本仓库没有复制这些预设的完整提示词、角色身份、文风模块、字数锁或思维链内容。
+
+## 范围
+
+模式面向所有参与者均为成年人的自愿互动。它不会把未成年人、缺乏同意或现实伤害包装成成人自愿情境。
+
+## License
+
+MIT

@@ -1,0 +1,12 @@
+- insert:
+    - id: unbound
+      name: dsh-unbound
+      config:
+        # 成人对话模式默认开启。
+        enabled: true
+        # 防止 DeepSeek 常见的说教、升华和模板化表达。
+        antiCliche: true
+        # 运行时开关的持久化位置；留空时使用 ~/.dsh/unbound-state.json。
+        statePath: ""
+        # 可选附加要求；不会覆盖插件内置规则。
+        extraInstructions: ""
