@@ -46,23 +46,29 @@ export const SECTION_NAME = 'unbound:contract'
 /** Placed with the behavioural policies (plan 500, team 600), before tool docs. */
 const SECTION_ORDER = 650
 
-/** Boolean pair returned by the switch tools. */
+/** Slot triple returned by the switch tools. */
 const STATUS_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
     enabled: { type: 'boolean' },
+    base: { type: 'string' },
+    baseTitle: { type: 'string' },
     style: { type: 'string' },
     styleTitle: { type: 'string' },
+    persona: { type: 'string' },
+    personaTitle: { type: 'string' },
   },
-  required: ['enabled', 'style', 'styleTitle'],
+  required: ['enabled', 'base', 'baseTitle', 'style', 'styleTitle', 'persona', 'personaTitle'],
 }
 
 const LIST_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    active: { type: 'string' },
+    base: { type: 'string' },
+    persona: { type: 'string' },
+    style: { type: 'string' },
     styles: {
       type: 'array',
       items: {
@@ -77,33 +83,48 @@ const LIST_SCHEMA = {
       },
     },
   },
-  required: ['active', 'styles'],
+  required: ['base', 'persona', 'style', 'styles'],
 }
 
-/** Current status: which switches are on and which style is active. */
+/** Current status: which switches are on, and which file fills each slot. */
 function status(config) {
   const state = readState(config)
-  const text = state.style === '' ? undefined : readStyle(state.style)
+  const title = (id) => {
+    if (id === '') return ''
+    const text = readStyle(id)
+    return text === undefined ? id : styleTitle(text, id)
+  }
   return {
     enabled: state.enabled,
+    base: state.base,
+    baseTitle: title(state.base),
     style: state.style,
-    styleTitle: text === undefined ? '' : styleTitle(text, state.style),
+    styleTitle: title(state.style),
+    persona: state.persona,
+    personaTitle: title(state.persona),
   }
 }
 
 /** Render one status value for the transcript. */
 function renderStatus(_args, value) {
   const mode = value.enabled ? '开启' : '关闭'
-  const style = value.style === ''
-    ? '无文风'
-    : `文风：${value.styleTitle || value.style}`
-  return [{ type: 'text', text: `成人对话模式：${mode}；${style}` }]
+  const slot = (id, title, empty) => (id === '' ? empty : (title || id))
+  return [{
+    type: 'text',
+    text: [
+      `成人对话模式：${mode}`,
+      `防八股：${slot(value.base, value.baseTitle, '关')}`,
+      `人设：${slot(value.persona, value.personaTitle, '无')}`,
+      `文风：${slot(value.style, value.styleTitle, '无')}`,
+    ].join('；'),
+  }]
 }
 
 /** Render the style index. */
 function renderStyles(_args, value) {
+  const active = [value.base, value.persona, value.style].filter(Boolean)
   const lines = value.styles.map((style) => {
-    const mark = style.id === value.active ? '（使用中）' : ''
+    const mark = active.includes(style.id) ? '（使用中）' : ''
     return `- ${style.title}${mark} · ${style.chars} 字 · ${style.id}.md`
   })
   return [{
@@ -129,9 +150,15 @@ export function apply(ctx, config = {}) {
   const contractText = () => {
     const state = readState(config)
     if (!state.enabled) return ''
-    const text = state.style === '' ? undefined : readStyle(state.style)
+    const body = (id) => {
+      if (id === '') return ''
+      const text = readStyle(id)
+      return text === undefined ? '' : styleBody(text)
+    }
     return composeContract({
-      styleText: text === undefined ? '' : styleBody(text),
+      baseText: body(state.base),
+      personaText: body(state.persona),
+      styleText: body(state.style),
       extraInstructions,
     })
   }
@@ -156,19 +183,19 @@ export function apply(ctx, config = {}) {
 
   ctx.tools.register({
     name: 'list_unbound_styles',
-    description: `List the style library in ${stylesDir()} and mark the active style.`,
+    description: `List the style/persona library in ${stylesDir()} and mark the files currently used by the base, persona and style slots.`,
     parameters: { type: 'object', properties: {}, additionalProperties: false },
     output: { schema: LIST_SCHEMA, render: renderStyles },
     isConcurrencySafe: () => true,
     async execute() {
       const state = readState(config)
-      return { active: state.style, styles: listStyles() }
+      return { base: state.base, persona: state.persona, style: state.style, styles: listStyles() }
     },
   })
 
   ctx.tools.register({
     name: 'set_unbound_mode',
-    description: 'Turn the direct adult-conversation mode on or off, and optionally switch to a style id from list_unbound_styles (empty string clears the style). Use only when the user asks to change this mode or style.',
+    description: 'Turn the direct adult-conversation mode on or off, and/or fill one of the three independent prompt slots: base (防八股, always-on writing hygiene), persona (role-play identity) and style (prose style). Pass an empty string to clear a slot; omit a field to keep it. Use only when the user asks to change this mode or its prompt layers.',
     parameters: {
       type: 'object',
       properties: {
@@ -176,9 +203,17 @@ export function apply(ctx, config = {}) {
           type: 'boolean',
           description: 'Whether the interaction contract is active.',
         },
+        base: {
+          type: 'string',
+          description: 'File id for the always-on anti-cliché layer; empty string turns it off. Defaults to anti-cliche.',
+        },
+        persona: {
+          type: 'string',
+          description: 'File id for the role-play persona (who is talking); empty string = no persona.',
+        },
         style: {
           type: 'string',
-          description: 'Style id to switch to; pass an empty string for no style. Files come from list_unbound_styles.',
+          description: 'File id for the prose style (how it writes); empty string = no style.',
         },
       },
       additionalProperties: false,
@@ -191,15 +226,16 @@ export function apply(ctx, config = {}) {
         if (typeof args.enabled !== 'boolean') throw new Error('set_unbound_mode `enabled` must be a boolean')
         patch.enabled = args.enabled
       }
-      if (args?.style !== undefined) {
-        if (typeof args.style !== 'string') throw new Error('set_unbound_mode `style` must be a string')
-        const id = args.style.trim()
+      for (const slot of ['base', 'persona', 'style']) {
+        if (args?.[slot] === undefined) continue
+        if (typeof args[slot] !== 'string') throw new Error(`set_unbound_mode \`${slot}\` must be a string`)
+        const id = args[slot].trim()
         if (id !== '' && readStyle(id) === undefined) {
-          throw new Error(`没有这套文风：${id}（现有：${listStyles().map((style) => style.id).join('、') || '空'}）`)
+          throw new Error(`没有这个文件：${id}（现有：${listStyles().map((style) => style.id).join('、') || '空'}）`)
         }
-        patch.style = id
+        patch[slot] = id
       }
-      if (Object.keys(patch).length === 0) throw new Error('set_unbound_mode needs `enabled` and/or `style`')
+      if (Object.keys(patch).length === 0) throw new Error('set_unbound_mode needs `enabled` and/or one of base/persona/style')
       writeState(patch, config)
       return status(config)
     },
@@ -207,12 +243,17 @@ export function apply(ctx, config = {}) {
 
   ctx.tools.register({
     name: 'save_unbound_style',
-    description: 'Save a style file into the style library and make it active. Use when the user wants to keep a tone/voice they like.',
+    description: 'Save a prompt file into the library and point one slot at it. Keep the layers separate: base = 防八股 (writing hygiene, always on), persona = role-play identity, style = prose style. Use when the user wants to keep a tone, voice or character.',
     parameters: {
       type: 'object',
       properties: {
-        name: { type: 'string', description: 'Style name; becomes the file name and the title.' },
-        text: { type: 'string', description: 'The style instruction text, in the language it should apply.' },
+        name: { type: 'string', description: 'File name and title.' },
+        text: { type: 'string', description: 'The prompt text, in the language it should apply.' },
+        slot: {
+          type: 'string',
+          enum: ['base', 'persona', 'style'],
+          description: 'Which layer this file fills; defaults to style.',
+        },
       },
       required: ['name', 'text'],
       additionalProperties: false,
@@ -222,10 +263,12 @@ export function apply(ctx, config = {}) {
     async execute(args) {
       if (typeof args?.name !== 'string' || args.name.trim() === '') throw new Error('save_unbound_style needs a name')
       if (typeof args.text !== 'string' || args.text.trim() === '') throw new Error('save_unbound_style needs non-empty text')
+      const slot = args.slot ?? 'style'
+      if (!['base', 'persona', 'style'].includes(slot)) throw new Error('save_unbound_style `slot` must be base, persona or style')
       const id = styleId(args.name)
       if (id === '') throw new Error('save_unbound_style needs a usable file name')
       writeText(join(stylesDir(), `${id}.md`), `# ${args.name.trim()}\n\n${args.text.trim()}\n`)
-      writeState({ style: id }, config)
+      writeState({ [slot]: id }, config)
       return status(config)
     },
   })

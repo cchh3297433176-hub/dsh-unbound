@@ -36,11 +36,27 @@ const DEFAULT_STYLE = `
 </anti_cliche>
 `.trim()
 
-/** Compose one system-prompt section from its parts, skipping empty ones. */
-export function composeContract({ styleText = '', extraInstructions = '' } = {}) {
+/**
+ * Compose one system-prompt section from its parts, skipping empty ones.
+ *
+ * Three independent layers so they never overwrite each other:
+ *   baseText      防八股，永远在
+ *   personaText   角色扮演的人设（谁在说话）
+ *   styleText     写文字的文风（怎么说话）
+ */
+export function composeContract({
+  baseText = '',
+  personaText = '',
+  styleText = '',
+  extraInstructions = '',
+} = {}) {
   const parts = [CORE_PROMPT]
+  const base = String(baseText ?? '').trim()
+  if (base !== '') parts.push(base)
+  const persona = String(personaText ?? '').trim()
+  if (persona !== '') parts.push(`<persona>\n${persona}\n</persona>`)
   const style = String(styleText ?? '').trim()
-  if (style !== '') parts.push(style)
+  if (style !== '') parts.push(`<writing_style>\n${style}\n</writing_style>`)
   const extra = String(extraInstructions ?? '').trim()
   if (extra !== '') parts.push(`<user_extra_instructions>\n${extra}\n</user_extra_instructions>`)
   return parts.join('\n\n')

@@ -18,22 +18,28 @@ dsh plugin --profile <profile> add github:cchh3297433176-hub/dsh-unbound
 
 装上即生效；改 `lib/` 以外的代码不需要重启引擎。
 
-## 两部分内容
+## 三层提示词（0.3.0 起）
 
-| | 位置 | 谁改 |
-| --- | --- | --- |
-| 互动许可（合同） | 代码里的 `prompts.js` → `CORE_PROMPT` | 不建议改 |
-| 文风库 | `$DSH_HOME/unbound/styles/*.md` | 你，随时 |
-| 开关状态 | `$DSH_HOME/unbound/state.json` | 工具或手机面板 |
+三层互不覆盖，各占一个槽位，可以只开其中任意几层：
 
-`styles/` 里一套文风一个文件，首行 `# 名字` 是标题，后面整段就是提示词。第一次运行会种子文件 `anti-cliche.md`（原来的防八股规则）。
+| 槽位 | 管什么 | 默认 | 位置 |
+| --- | --- | --- | --- |
+| `base` | 防八股：写作卫生，永远在 | `anti-cliche` | `$DSH_HOME/unbound/styles/anti-cliche.md` |
+| `persona` | 角色扮演的人设：谁在说话 | 空 | 同目录任意 `.md` |
+| `style` | 文风：句子怎么走、用词什么调 | 空 | 同目录任意 `.md` |
+| 互动许可（合同） | 许可与硬边界，代码里的 `CORE_PROMPT` | 固定 | 不建议改 |
+| 开关状态 | 三个槽位各指向哪个文件 | — | `$DSH_HOME/unbound/state.json` |
+
+拼装顺序是 合同 → 防八股 → `<persona>` → `<writing_style>` → 附加要求。0.2.0 的 `{ style }` 状态会自动迁移：`anti-cliche` 进 `base`，其他 id 留在 `style`。
+
+`styles/` 里一个文件就是一段提示词，首行 `# 名字` 是标题，后面整段生效。同一个文件可以被任一槽位引用，槽位决定它按哪一层拼进去。
 
 ## 工具
 
-- `get_unbound_status`：模式开没开、当前哪套文风。
-- `list_unbound_styles`：列出文风库并标出使用中的那套。
-- `set_unbound_mode`：开/关成人模式，或切到某套文风（传空串 = 不用文风）。
-- `save_unbound_style`：把一段提示词存成文风文件并立刻启用。
+- `get_unbound_status`：模式开没开，三个槽位各是哪份文件。
+- `list_unbound_styles`：列出库里的文件，并标出被 base / persona / style 占用的那几个。
+- `set_unbound_mode`：开/关成人模式；`base` / `persona` / `style` 分别换文件（空串 = 清掉该层）。
+- `save_unbound_style`：存一份提示词进库，`slot` 指定它进哪一层（默认 `style`）。
 
 手机上的 `local-unbound` 插件提供同名面板「文风与模式」：在聊天页「插件」弹层和「全部功能」里，点一行就能切，不占输入框胶囊。
 
@@ -42,7 +48,7 @@ dsh plugin --profile <profile> add github:cchh3297433176-hub/dsh-unbound
 | 配置 | 默认值 | 作用 |
 | --- | --- | --- |
 | `enabled` | `true` | 首次运行时是否开启成人对话模式 |
-| `antiCliche` | `true` | 旧配置项；首次运行时决定是否默认用 `anti-cliche` 文风 |
+| `antiCliche` | `true` | 旧配置项；没有 state 时决定 `base` 层默认开不开 |
 | `extraInstructions` | 空 | 追加在最后的附加要求 |
 
 ## 测试

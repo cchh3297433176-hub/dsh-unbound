@@ -1,6 +1,6 @@
 {
   "name": "dsh-unbound",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "DeepSeek Harness plugin for direct, non-judgmental adult conversation, with a file-based style library.",
   "type": "module",
   "main": "index.js",

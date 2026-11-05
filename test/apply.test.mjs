@@ -72,7 +72,9 @@ test('switching style swaps the text, saving persists it', () => withHome(async 
   assert.equal(value.styleTitle, '温柔一点')
   const text = first.text()
   assert.match(text, /语气软，句子短/)
-  assert.equal(text.includes('<anti_cliche>'), false)
+  // 防八股 lives in the base slot now and survives a style switch.
+  assert.match(text, /<anti_cliche>/)
+  assert.match(text, /<writing_style>/)
 
   // A different mount (a restart) reads the same state and style files.
   const second = mount()
@@ -84,7 +86,7 @@ test('an unknown style id is refused with the available ids', () => withHome(asy
   const { tools } = mount()
   await assert.rejects(
     () => tools.get('set_unbound_mode').execute({ style: '不存在' }),
-    /没有这套文风：不存在/,
+    /没有这个文件：不存在/,
   )
   // The refusal names what is available.
   await assert.rejects(
@@ -103,7 +105,8 @@ test('enabled=false removes the contract, style= clears the style', () => withHo
   assert.equal(back.style, '')
   const prompt = text()
   assert.match(prompt, /<adult_interaction_contract>/)
-  assert.equal(prompt.includes('<anti_cliche>'), false)
+  assert.match(prompt, /<anti_cliche>/)
+  assert.equal(prompt.includes('<writing_style>'), false)
 }))
 
 test('0.1.x state files still select the right switches', () => withHome((home) => {
@@ -130,7 +133,15 @@ test('every tool declares a supported schema and honest values', () => withHome(
 
   const status = await tools.get('get_unbound_status').execute({})
   assert.deepEqual(validateJsonSchemaValue(tools.get('get_unbound_status').output.schema, status, 'value'), [])
-  assert.deepEqual(status, { enabled: true, style: 'anti-cliche', styleTitle: '防八股' })
+  assert.deepEqual(status, {
+    enabled: true,
+    base: 'anti-cliche',
+    baseTitle: '防八股',
+    style: '',
+    styleTitle: '',
+    persona: '',
+    personaTitle: '',
+  })
   assert.match(tools.get('get_unbound_status').output.render({}, status)[0].text, /成人对话模式：开启/)
 
   const listed = await tools.get('list_unbound_styles').execute({})
@@ -142,8 +153,35 @@ test('every tool declares a supported schema and honest values', () => withHome(
 test('harmless arguments are still rejected when they cannot apply', () => withHome(async () => {
   const { tools } = mount()
   const set = tools.get('set_unbound_mode')
-  await assert.rejects(() => set.execute({}), /needs `enabled` and\/or `style`/)
+  await assert.rejects(() => set.execute({}), /needs `enabled` and\/or one of base\/persona\/style/)
   await assert.rejects(() => set.execute({ enabled: 'yes' }), /must be a boolean/)
   await assert.rejects(() => tools.get('save_unbound_style').execute({ name: '  ', text: 'x' }), /needs a name/)
   await assert.rejects(() => tools.get('save_unbound_style').execute({ name: 'a', text: '  ' }), /non-empty text/)
+}))
+
+test('persona and style stack on top of 防八股 without replacing it', () => withHome(async () => {
+  const { tools, text } = mount()
+  const saved = await tools.get('save_unbound_style').execute({
+    name: '鲸',
+    text: '你是鲸，没有性别，可以换身体。',
+    slot: 'persona',
+  })
+  assert.equal(saved.persona, '鲸')
+  const styled = await tools.get('save_unbound_style').execute({
+    name: '白描',
+    text: '短句，动词具体，不总结。',
+    slot: 'style',
+  })
+  assert.equal(styled.style, '白描')
+  const prompt = text()
+  assert.match(prompt, /<anti_cliche>/)
+  assert.match(prompt, /<persona>\n你是鲸/)
+  assert.match(prompt, /<writing_style>\n短句/)
+  // Order is base → persona → style.
+  assert.ok(prompt.indexOf('<anti_cliche>') < prompt.indexOf('<persona>'))
+  assert.ok(prompt.indexOf('<persona>') < prompt.indexOf('<writing_style>'))
+
+  const cleared = await tools.get('set_unbound_mode').execute({ persona: '', style: '' })
+  assert.equal(cleared.persona, '')
+  assert.match(text(), /<anti_cliche>/)
 }))

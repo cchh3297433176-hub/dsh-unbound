@@ -142,14 +142,48 @@ export function styleId(name) {
     .slice(0, 60)
 }
 
-/** Normalize whatever is on disk into `{ enabled, style }`. */
+/**
+ * Normalize whatever is on disk into `{ enabled, base, style, persona }`.
+ *
+ * Three independent slots, all pointing at files in the same library:
+ *   base     always-on writing hygiene (防八股), seeded as `anti-cliche`
+ *   style    how the prose reads (sentence rhythm, diction)
+ *   persona  who is talking (role-play identity); empty = no role
+ * A v2 state (`{ style }` only) migrates: `anti-cliche` becomes the base, and
+ * any other id stays in `style` — so selecting a persona no longer costs the
+ * anti-cliché layer.
+ */
 function normalize(raw, config) {
   const enabled = typeof raw?.enabled === 'boolean' ? raw.enabled : config.enabled !== false
-  let style
-  if (typeof raw?.style === 'string') style = raw.style
-  else if (typeof raw?.antiCliche === 'boolean') style = raw.antiCliche ? DEFAULT_STYLE_ID : ''
-  else style = config.antiCliche === false ? '' : DEFAULT_STYLE_ID
-  return { enabled, style }
+  const isV3 = raw !== null && typeof raw === 'object' && ('base' in raw || 'persona' in raw)
+  if (isV3) {
+    return {
+      enabled,
+      base: typeof raw.base === 'string' ? raw.base : DEFAULT_STYLE_ID,
+      style: typeof raw.style === 'string' ? raw.style : '',
+      persona: typeof raw.persona === 'string' ? raw.persona : '',
+    }
+  }
+  const hasStyle = typeof raw?.style === 'string'
+  const antiCliche = typeof raw?.antiCliche === 'boolean'
+    ? raw.antiCliche
+    : config.antiCliche !== false
+  if (hasStyle) {
+    // v2: one style file replaced everything, so it also replaced 防八股.
+    return {
+      enabled,
+      base: DEFAULT_STYLE_ID,
+      style: raw.style === DEFAULT_STYLE_ID ? '' : raw.style,
+      persona: '',
+    }
+  }
+  // v1: only the anti-cliché toggle existed.
+  return {
+    enabled,
+    base: antiCliche ? DEFAULT_STYLE_ID : '',
+    style: '',
+    persona: '',
+  }
 }
 
 /** Read the live state, falling back to legacy state then to row config. */
@@ -168,7 +202,12 @@ export function readState(config = {}) {
 
 /** Merge a patch into the state file and return the new state. */
 export function writeState(patch, config = {}) {
-  const next = { version: 2, ...readState(config), ...patch }
+  const next = { version: 3, ...readState(config), ...patch }
   writeJson(stateFile(), next)
-  return { enabled: next.enabled, style: next.style }
+  return {
+    enabled: next.enabled,
+    base: next.base,
+    style: next.style,
+    persona: next.persona,
+  }
 }
