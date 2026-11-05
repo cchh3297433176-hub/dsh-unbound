@@ -14,7 +14,7 @@
 ## 安装
 
 ```sh
-dsh plugin --profile <profile> add github:<owner>/dsh-unbound
+dsh plugin --profile <profile> add github:cchh3297433176-hub/dsh-unbound
 ```
 
 安装后重启 DSH Desktop，或重载对应 profile。
