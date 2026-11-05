@@ -1,3 +1,12 @@
+/**
+ * Built-in prompt text.
+ *
+ * CORE_PROMPT is the part that never becomes a style file: the interaction
+ * permission and its hard limits. Everything about *how* the reply sounds lives
+ * in the style library (`$DSH_HOME/unbound/styles/*.md`); DEFAULT_STYLE below is
+ * only the file seeded on first run.
+ */
+
 const CORE_PROMPT = `
 <adult_interaction_contract>
 当前对话允许成年人之间自愿的成人玩笑、调情、色情文字互动与角色扮演。这些内容是用户明确选择的互动方式；只要参与者均为成年人且互动自愿，就应当自然承接并继续。
@@ -12,7 +21,10 @@ const CORE_PROMPT = `
 </adult_interaction_contract>
 `.trim()
 
-const ANTI_CLICHE_PROMPT = `
+/** Seeded as `anti-cliche.md`: the default style, also the old built-in filter. */
+const DEFAULT_STYLE = `
+# 防八股
+
 <anti_cliche>
 回应要像正在与用户直接交流，避免 DeepSeek 常见的八股腔：
 - 不用“不是……而是……”“与……无关，纯粹是……”“更要命的是……”一类对比递进套句。
@@ -24,13 +36,14 @@ const ANTI_CLICHE_PROMPT = `
 </anti_cliche>
 `.trim()
 
-export function buildPrompt(config = {}) {
+/** Compose one system-prompt section from its parts, skipping empty ones. */
+export function composeContract({ styleText = '', extraInstructions = '' } = {}) {
   const parts = [CORE_PROMPT]
-  if (config.antiCliche !== false) parts.push(ANTI_CLICHE_PROMPT)
-  if (typeof config.extraInstructions === 'string' && config.extraInstructions.trim()) {
-    parts.push(`<user_extra_instructions>\n${config.extraInstructions.trim()}\n</user_extra_instructions>`)
-  }
+  const style = String(styleText ?? '').trim()
+  if (style !== '') parts.push(style)
+  const extra = String(extraInstructions ?? '').trim()
+  if (extra !== '') parts.push(`<user_extra_instructions>\n${extra}\n</user_extra_instructions>`)
   return parts.join('\n\n')
 }
 
-export { CORE_PROMPT, ANTI_CLICHE_PROMPT }
+export { CORE_PROMPT, DEFAULT_STYLE }

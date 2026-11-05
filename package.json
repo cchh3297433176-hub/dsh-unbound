@@ -1,20 +1,21 @@
 {
   "name": "dsh-unbound",
-  "version": "0.1.0",
-  "description": "DeepSeek Harness plugin for direct, non-judgmental adult conversation with an optional anti-cliche filter.",
+  "version": "0.2.0",
+  "description": "DeepSeek Harness plugin for direct, non-judgmental adult conversation, with a file-based style library.",
   "type": "module",
   "main": "index.js",
   "files": [
     "index.js",
+    "store.js",
     "prompts.js",
     "cordis.patch.yml",
     "README.md",
+    "LESSONS.md",
     "LICENSE"
   ],
   "scripts": {
-    "prepare": "echo 'No build needed for JS plugin'",
     "test": "node --test",
-    "check": "node --check index.js && node --check prompts.js"
+    "check": "node --check index.js && node --check store.js && node --check prompts.js"
   },
   "keywords": [
     "deepseek-harness",
@@ -24,11 +25,6 @@
     "anti-cliche"
   ],
   "license": "MIT",
-  "peerDependencies": {
-    "@deepseek-ai/cordis": "*",
-    "@deepseek-ai/dsh-tools": "*",
-    "@deepseek-ai/dsh-llm": "*"
-  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
